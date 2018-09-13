@@ -11,7 +11,7 @@ class OssBaseClient
     */
     protected $debug = false;
 
-    private $checkFieldList = [
+    protected $checkFieldList = [
         'h5Pay'=> [
             'MCHNTCD'=>['required'=>1,'tip'=>'商户代码必需'],
             'TYPE'=>['required'=>1,'tips'=>'交易类型必需'],
@@ -122,6 +122,7 @@ class OssBaseClient
     protected $postUrl = '';
     protected $accessAppKey = null; //接口名称 h5Pay bindMsg unbind bindCommit orderPay
     protected $accessSecret = null;//商户秘钥
+    protected $params = [];
     protected $postData = [];
     protected $postErrorMsg = '';
 
@@ -132,21 +133,12 @@ class OssBaseClient
     */
     public function __construct($accessAppKey,$accessSecret,$params)
     {
-        $this->checkAppKey($accessAppKey);
         $this->accessAppKey = $accessAppKey;
         $this->accessSecret = $accessSecret;
-        $this->checkParams($params);
-        $this->postUrl = $this->getPostUrl($accessAppKey);
+        $this->params = $params;
     }
 
-    private function checkAppKey($accessAppKey){
-        if(!in_array($accessAppKey,array_keys($this->checkFieldList))){
-            return ['code'=>300,'msg'=>'请求非法'];
-            exit();
-        }
-    }
-
-    private function checkParams($params){
+    protected function checkParams($params){
         if($params){
             $postData = [];
             $fieldList = array_keys($this->checkFieldList[$this->accessAppKey]);
@@ -163,7 +155,7 @@ class OssBaseClient
         }
     }
 
-    private function getPostUrl($accessAppKey){
+    protected function getPostUrl($accessAppKey){
         $index = $this->debug ? 0 : 1;
         return $this->postUrlList[$accessAppKey][$index] ? $this->postUrlList[$accessAppKey][$index] : '';
     }

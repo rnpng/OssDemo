@@ -12,6 +12,7 @@ class OssClient extends OssBaseClient
 
     protected $accessAppKey = null; //接口名称 h5Pay bindMsg unbind bindCommit
     protected $accessSecret = null;//商户秘钥
+    protected $params = [];
     protected $postData = [];
     protected $postErrorMsg = '';
     protected $postUrl = '';
@@ -28,12 +29,19 @@ class OssClient extends OssBaseClient
     }
 
     private function beforeRun(){
+        if(!in_array($this->accessAppKey,array_keys($this->checkFieldList))){
+            return ['code'=>204,'msg'=>'请求接口不存在'];
+        }
+
+        $this->checkParams($this->params);
         if($this->postErrorMsg){
             return ['code'=>201,'msg'=>$this->postErrorMsg];
         }
         if(!$this->postData){
             return ['code'=>202,'msg'=>'参数不能为空'];
         }
+
+        $this->postUrl = $this->getPostUrl($this->accessAppKey);
         if(!$this->postUrl){
             return ['code'=>203,'msg'=>'请求地址不能为空'];
         }
