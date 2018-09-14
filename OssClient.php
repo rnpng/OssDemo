@@ -265,4 +265,68 @@ class OssClient extends OssBaseClient
         }
         return $r;
     }
+
+    //PC认证支付
+    public function dirPayGate(){
+        $checkResult = $this->beforeRun();
+        if($checkResult['code'] != 200){
+            return $checkResult;
+        }
+        $secret = $this->getSign($this->postData);
+        $data['mchnt_cd'] = $this->postData['MCHNTCD'];
+        $data['order_id'] = $this->postData['MCHNTORDERID'];
+        $data['order_amt'] = $this->postData['AMT'];
+        $data['user_type'] = $this->postData['TYPE'];
+        $data['page_notify_url'] = $this->postData['HOMEURL'];
+        $data['back_notify_url'] = $this->postData['BACKURL'];
+        $data['card_no'] = $this->postData['CARDNO'];
+        $data['cert_type'] = $this->postData['IDTYPE'];
+        $data['cert_no'] = $this->postData['IDCARD'];
+        $data['cardholder_name'] = $this->postData['USERNAME'];
+        $data['user_id'] = $this->postData['USERID'];
+        $data['RSA'] = $secret;
+        if($this->debug){
+            $logName = 'dirPayGate-'.date('Ymd').'.txt';
+            file_put_contents($logName,print_r($data,true));
+        }
+        $html = '<html>
+                    <head></head>
+                    <body>
+                        <form action="'. $this->postUrl .'"  method="post">
+                            <input name="mchnt_cd" type="text" value="'. $this->postData['MCHNTCD'] .'" /><br>
+                            <input name="order_id" type="text" value="'. $this->postData['MCHNTORDERID'] .'"/><br>
+                            <input name="order_amt" type="text" value="'. $this->postData['AMT']  .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['TYPE'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['HOMEURL'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['BACKURL'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['CARDNO'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['IDTYPE'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['IDCARD'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['USERNAME'] .'"/><br>
+                            <input name="user_type" type="text" value="'. $this->postData['USERID'] .'"/><br>
+                            <input type="submit" name="submit" value="提交"><br>
+                        </form>
+                    </body>
+                </html>';
+        echo $html;
+        /*$content = http_build_query($data);
+        $options = array(
+            'http' => array(
+                'method' => 'POST',
+                'header' => 'Content-type:application/x-www-form-urlencoded',
+                'content' => $content,
+                'timeout' => $this->timeOutSeconds // 超时时间（单位:s）
+            )
+        );
+        $context = stream_context_create($options);
+        $result = file_get_contents($this->postUrl, false, $context);
+        $r = $this->resolveResponseData($result,['MCHNTCD','USERID','MCHNTORDERID','ORDERID','BANKCARD','AMT','PROTOCOLNO']);
+        if($r['code'] !== 200){
+            $fileName = "dirPayGate.txt";
+            $ossLog = new OssLog($fileName);
+            $message = sprintf('请求地址：%s  请求参数：%s  接口返回：%s',$this->postUrl,print_r($this->postData,true),print_r($r,true));
+            $ossLog->write($message);
+        }
+        return $r;*/
+    }
 }

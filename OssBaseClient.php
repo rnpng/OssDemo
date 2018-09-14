@@ -94,6 +94,19 @@ class OssBaseClient
             'REM3'=>['required'=>0,'tips'=>''],
             'SIGNTP'=>['required'=>1,'tips'=>'加密方式必须'],
             'SIGN'=>['required'=>1,'tips'=>'签名必须']
+        ],
+        'dirPayGate'=>[
+            'MCHNTCD'=>['required'=>1,'tip'=>'商户代码必需'],
+            'MCHNTORDERID'=>['required'=>1,'tips'=>'商户订单号必需'],
+            'AMT'=>['required'=>1,'tips'=>'交易金额必需'],
+            'TYPE'=>['required'=>1,'tips'=>'交易类型必须'],
+            'HOMEURL'=>['required'=>1,'tips'=>'页面通知URL必需'],
+            'BACKURL'=>['required'=>0,'tips'=>'后台通知URL必需'],
+            'CARDNO'=>['required'=>0,'tips'=>'银行卡号必需'],
+            'IDTYPE'=>['required'=>0,'tips'=>'证件类型必需'],
+            'IDCARD'=>['required'=>0,'tips'=>'证件号码必需'],
+            'USERID'=>['required'=>1,'tips'=>'用户编号必须'],
+            'USERNAME'=>['required'=>0,'tips'=>'用户真实姓名必须'],
         ]
     ];
 
@@ -117,6 +130,10 @@ class OssBaseClient
         'orderPay'=>[
             0=>'http://www-1.fuiou.com:18670/mobile_pay/newpropay/order.pay',
             1=>'https://mpay.fuiou.com/newpropay/order.pay'
+        ],
+        'dirPayGate'=>[
+            0=>'http://www-1.fuiou.com:8888/wg1_run/dirPayGate.do',
+            1=>'https://pay.fuiou.com/dirPayGate.do'
         ]
     ];
     protected $postUrl = '';
@@ -319,6 +336,20 @@ class OssBaseClient
             $sign = str_replace(' ', '', $sign);
             $sign = md5($sign);
             return $sign;
+        }else if($this->accessAppKey == 'dirPayGate'){
+            $sign = $data['MCHNTCD']."|".$data['USERID']."|".$data['MCHNTORDERID']."|".$data['AMT'] ."|".$data['CARDNO']."|".$data['USERNAME']."|".$data['IDTYPE']."|".$data['IDCARD']."|".$data['HOMEURL']."|".$data['BACKURL'];
+            $sign = str_replace(' ', '', $sign);
+            $dataGBK = iconv('UTF-8', 'GBK', $sign);
+
+            // rsa私钥，在正式环境时，更换为正式的私钥
+            $rsaKey = 'MIICdQIBADANBgkqhkiG9w0BAQEFAASCAl8wggJbAgEAAoGBAJMr8NnRV7ve7Y5FEBium/TsU0fK5NvzvFpsYxPAQhBXY+EN0Bi2JEg790C1njk9Q3U36u2JBDHAiDIomlgh6wWkJsFn7dghV/fCWSX1VVJ+dRINZy1432fRaJ8GqspvMneBpeLjBe94IwlWKpN+AOR+BNX8QL/uHmfCPlVQXos9AgMBAAECgYAzqbMs434m50UBMmFKKNF6kxNRGnpodBFktLO7FTybu/HF6TFp21a1PMe5IYhfk5AAsBZ6OCUOygWFhhdYZN+5W+dweF3kp1rLE4y5CjwqNlk/g22TAndf9znh/ltHFLvITToqu/eh/34tE1gyNxRbsi1olw/1wv8ZRjM3vtM9QQJBANvNwFq+CJHUyFzkXQB7+ycQFnY8wDq8Uw2Hv9ZMjgIntH7FSlJtdu5mAYPPo6f74slO5tFUMNP7EVppqsjYaNkCQQCraD6iKHo+OIlvvYIKiMXatJGD7N1GNhq5CrhUNPWLHwv/Ih2D3JJdF8IUZOPIJfUxTfM2fZYI+EVdsv6s4RcFAkAGjNYbnighOGcUJZYD6q3sVxVkRqEv3ubWs2HrH/Lna4l8caKqXCq8JfwLkod8/QugFiLYwBqIZqX4vMdjHtfZAkBsAl9dbWZCaPvpxp/4JWGPxDLhz9NLV/KU4bVvkoObq++yUHwKyGYOdVcd5MlIKOsNq5Hzp0Vw14lWVuF2bMxFAkBuNrZksvUULNIaWDKd4rQ6GVzUxXuIZW0ZE6atHYDiXPB4jVAjKRtLxZAV1qH9cr1zNJlcg+RbGYUdF9t4A9n5';
+            $pemKey = chunk_split($rsaKey, 64, "\n");
+            $pem = "-----BEGIN PRIVATE KEY-----\n" . $pemKey . "-----END PRIVATE KEY-----\n";
+            $priKey = openssl_pkey_get_private($pem);
+
+            openssl_sign($dataGBK, $encrypted, $priKey, OPENSSL_ALGO_MD5); // 对数据进行签名
+            $rsa = base64_encode($encrypted);
+            return $rsa;
         }
     }
 }
