@@ -107,6 +107,20 @@ class OssBaseClient
             'IDCARD'=>['required'=>0,'tips'=>'证件号码必需'],
             'USERID'=>['required'=>1,'tips'=>'用户编号必须'],
             'USERNAME'=>['required'=>0,'tips'=>'用户真实姓名必须'],
+        ],
+        'dirPayGateNotify'=>[
+            'mchnt_cd'=>['required'=>1,'tips'=>'商户代码必需'],
+            'order_id'=>['required'=>1,'tips'=>'商户订单号必须'],
+            'order_date'=>['required'=>1,'tips'=>'订单日期必须'],
+            'order_amt'=>['required'=>1,'tips'=>'交易金额必须'],
+            'order_st'=>['required'=>1,'tips'=>'订单状态必须'],
+            'order_pay_code'=>['required'=>1,'tips'=>'响应代码必须'],
+            'order_pay_msg'=>['required'=>1,'tips'=>'错误中文描述必须'],
+            'user_id'=>['required'=>1,'tips'=>'用户ID必须'],
+            'fy_ssn'=>['required'=>1,'tips'=>'富友流水号必须'],
+            'card_no'=>['required'=>1,'tips'=>'扣款卡号必须'],
+            'pay_type'=>['required'=>1,'tips'=>'支付类型必须'],
+            'RSA'=>['required'=>1,'tips'=>'RSA签名必须']
         ]
     ];
 
@@ -148,8 +162,7 @@ class OssBaseClient
      * @param $accessSecret string 商户秘钥
      * @param $params array 支付参数
     */
-    public function __construct($accessAppKey,$accessSecret,$params)
-    {
+    public function __construct($accessAppKey,$accessSecret,$params){
         $this->accessAppKey = $accessAppKey;
         $this->accessSecret = $accessSecret;
         $this->params = $params;
@@ -160,9 +173,11 @@ class OssBaseClient
             $postData = [];
             $fieldList = array_keys($this->checkFieldList[$this->accessAppKey]);
             foreach($fieldList as $field){
-                if($this->checkFieldList[$this->accessAppKey][$field]['required'] && !isset($params[$field])){
-                    $this->postErrorMsg = $this->checkFieldList[$this->accessAppKey][$field]['tips'];
-                    return false;
+                if($this->checkFieldList[$this->accessAppKey][$field]['required']){
+                    if((!isset($params[$field])) || (isset($params[$field]) && $params[$field] === '')){
+                        $this->postErrorMsg = $this->checkFieldList[$this->accessAppKey][$field]['tips'];
+                        return false;
+                    }
                 }
                 if(in_array($field,$fieldList)){
                     $postData[$field] = $params[$field];
@@ -339,17 +354,16 @@ class OssBaseClient
         }else if($this->accessAppKey == 'dirPayGate'){
             $sign = $data['MCHNTCD']."|".$data['USERID']."|".$data['MCHNTORDERID']."|".$data['AMT'] ."|".$data['CARDNO']."|".$data['USERNAME']."|".$data['IDTYPE']."|".$data['IDCARD']."|".$data['HOMEURL']."|".$data['BACKURL'];
             $sign = str_replace(' ', '', $sign);
-            $dataGBK = iconv('UTF-8', 'GBK', $sign);
-
             // rsa私钥，在正式环境时，更换为正式的私钥
-            $rsaKey = 'MIICdQIBADANBgkqhkiG9w0BAQEFAASCAl8wggJbAgEAAoGBAJMr8NnRV7ve7Y5FEBium/TsU0fK5NvzvFpsYxPAQhBXY+EN0Bi2JEg790C1njk9Q3U36u2JBDHAiDIomlgh6wWkJsFn7dghV/fCWSX1VVJ+dRINZy1432fRaJ8GqspvMneBpeLjBe94IwlWKpN+AOR+BNX8QL/uHmfCPlVQXos9AgMBAAECgYAzqbMs434m50UBMmFKKNF6kxNRGnpodBFktLO7FTybu/HF6TFp21a1PMe5IYhfk5AAsBZ6OCUOygWFhhdYZN+5W+dweF3kp1rLE4y5CjwqNlk/g22TAndf9znh/ltHFLvITToqu/eh/34tE1gyNxRbsi1olw/1wv8ZRjM3vtM9QQJBANvNwFq+CJHUyFzkXQB7+ycQFnY8wDq8Uw2Hv9ZMjgIntH7FSlJtdu5mAYPPo6f74slO5tFUMNP7EVppqsjYaNkCQQCraD6iKHo+OIlvvYIKiMXatJGD7N1GNhq5CrhUNPWLHwv/Ih2D3JJdF8IUZOPIJfUxTfM2fZYI+EVdsv6s4RcFAkAGjNYbnighOGcUJZYD6q3sVxVkRqEv3ubWs2HrH/Lna4l8caKqXCq8JfwLkod8/QugFiLYwBqIZqX4vMdjHtfZAkBsAl9dbWZCaPvpxp/4JWGPxDLhz9NLV/KU4bVvkoObq++yUHwKyGYOdVcd5MlIKOsNq5Hzp0Vw14lWVuF2bMxFAkBuNrZksvUULNIaWDKd4rQ6GVzUxXuIZW0ZE6atHYDiXPB4jVAjKRtLxZAV1qH9cr1zNJlcg+RbGYUdF9t4A9n5';
-            $pemKey = chunk_split($rsaKey, 64, "\n");
-            $pem = "-----BEGIN PRIVATE KEY-----\n" . $pemKey . "-----END PRIVATE KEY-----\n";
-            $priKey = openssl_pkey_get_private($pem);
-
-            openssl_sign($dataGBK, $encrypted, $priKey, OPENSSL_ALGO_MD5); // 对数据进行签名
-            $rsa = base64_encode($encrypted);
-            return $rsa;
+            $rsaPrivateKey = 'MIICdQIBADANBgkqhkiG9w0BAQEFAASCAl8wggJbAgEAAoGBAJMr8NnRV7ve7Y5FEBium/TsU0fK5NvzvFpsYxPAQhBXY+EN0Bi2JEg790C1njk9Q3U36u2JBDHAiDIomlgh6wWkJsFn7dghV/fCWSX1VVJ+dRINZy1432fRaJ8GqspvMneBpeLjBe94IwlWKpN+AOR+BNX8QL/uHmfCPlVQXos9AgMBAAECgYAzqbMs434m50UBMmFKKNF6kxNRGnpodBFktLO7FTybu/HF6TFp21a1PMe5IYhfk5AAsBZ6OCUOygWFhhdYZN+5W+dweF3kp1rLE4y5CjwqNlk/g22TAndf9znh/ltHFLvITToqu/eh/34tE1gyNxRbsi1olw/1wv8ZRjM3vtM9QQJBANvNwFq+CJHUyFzkXQB7+ycQFnY8wDq8Uw2Hv9ZMjgIntH7FSlJtdu5mAYPPo6f74slO5tFUMNP7EVppqsjYaNkCQQCraD6iKHo+OIlvvYIKiMXatJGD7N1GNhq5CrhUNPWLHwv/Ih2D3JJdF8IUZOPIJfUxTfM2fZYI+EVdsv6s4RcFAkAGjNYbnighOGcUJZYD6q3sVxVkRqEv3ubWs2HrH/Lna4l8caKqXCq8JfwLkod8/QugFiLYwBqIZqX4vMdjHtfZAkBsAl9dbWZCaPvpxp/4JWGPxDLhz9NLV/KU4bVvkoObq++yUHwKyGYOdVcd5MlIKOsNq5Hzp0Vw14lWVuF2bMxFAkBuNrZksvUULNIaWDKd4rQ6GVzUxXuIZW0ZE6atHYDiXPB4jVAjKRtLxZAV1qH9cr1zNJlcg+RbGYUdF9t4A9n5';
+            $secret = \OSS\OssUtil::rsaSign($sign,$rsaPrivateKey);
+            return $secret;
+        }else if($this->accessAppKey == 'dirPayGateNotify'){
+            $sign = $data['mchnt_cd']."|".$data['user_id']."|".$data['order_id']."|".$data['order_amt'] ."|".$data['order_date']."|".$data['card_no']."|".$data['fy_ssn'];
+            $sign = str_replace(' ', '', $sign);
+            $rsaPublicKey = 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCTK/DZ0Ve73u2ORRAYrpv07FNHyuTb87xabGMTwEIQV2PhDdAYtiRIO/dAtZ45PUN1N+rtiQQxwIgyKJpYIesFpCbBZ+3YIVf3wlkl9VVSfnUSDWcteN9n0WifBqrKbzJ3gaXi4wXveCMJViqTfgDkfgTV/EC/7h5nwj5VUF6LPQIDAQAB';
+            $secret = \OSS\OssUtil::rsaVerify($sign,$rsaPublicKey);
+            return $secret;
         }
     }
 }

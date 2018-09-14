@@ -9,6 +9,7 @@ include('OssLog.php');
 class OssClient extends OssBaseClient
 {
     private $timeOutSeconds = 30;
+    private $illegalAccessAppKey = false;
 
     protected $accessAppKey = null; //接口名称 h5Pay bindMsg unbind bindCommit
     protected $accessSecret = null;//商户秘钥
@@ -29,8 +30,9 @@ class OssClient extends OssBaseClient
     }
 
     private function beforeRun(){
-        if(!in_array($this->accessAppKey,array_keys($this->checkFieldList))){
-            return ['code'=>204,'msg'=>'请求接口不存在'];
+        $this->checkAccessAppKey();
+        if($this->illegalAccessAppKey){
+            return ['code'=>204,'msg'=>'请求方法不存在'];
         }
 
         $this->checkParams($this->params);
@@ -46,6 +48,12 @@ class OssClient extends OssBaseClient
             return ['code'=>203,'msg'=>'请求地址不能为空'];
         }
         return ['code'=>200,'msg'=>''];
+    }
+
+    private function checkAccessAppKey(){
+        if(!in_array($this->accessAppKey,array_keys($this->checkFieldList))){
+            $this->illegalAccessAppKey = true;
+        }
     }
 
     //H5支付
@@ -250,6 +258,12 @@ class OssClient extends OssBaseClient
 
     //处理协议支付异步回调
     public function notify(){
+        $this->checkAccessAppKey();
+        if($this->illegalAccessAppKey){
+            return ['code'=>204,'msg'=>'请求方法不存在'];
+        }
+
+        $this->checkParams($this->params);
         if($this->postErrorMsg){
             return ['code'=>201,'errorMsg'=>$this->postErrorMsg];
         }
@@ -268,10 +282,22 @@ class OssClient extends OssBaseClient
 
     //PC认证支付
     public function dirPayGate(){
+        //TYPE=0 理财版 TYPE=1普通版
+        if($this->params['TYPE'] == '0'){
+            //如为理财版支付则此四项为必填
+            $fieldList = ['CARDNO','USERNAME','IDTYPE','IDCARD'];
+            foreach($this->checkFieldList[$this->accessAppKey] as $field => $item){
+                if(in_array($field,$fieldList)){
+                    $this->checkFieldList[$this->accessAppKey][$field]['required'] = 1;
+                }
+            };
+        }
+
         $checkResult = $this->beforeRun();
         if($checkResult['code'] != 200){
             return $checkResult;
         }
+
         $secret = $this->getSign($this->postData);
         $data['mchnt_cd'] = $this->postData['MCHNTCD'];
         $data['order_id'] = $this->postData['MCHNTORDERID'];
@@ -297,13 +323,14 @@ class OssClient extends OssBaseClient
                             <input name="order_id" type="text" value="'. $this->postData['MCHNTORDERID'] .'"/><br>
                             <input name="order_amt" type="text" value="'. $this->postData['AMT']  .'"/><br>
                             <input name="user_type" type="text" value="'. $this->postData['TYPE'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['HOMEURL'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['BACKURL'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['CARDNO'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['IDTYPE'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['IDCARD'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['USERNAME'] .'"/><br>
-                            <input name="user_type" type="text" value="'. $this->postData['USERID'] .'"/><br>
+                            <input name="page_notify_url" type="text" value="'. $this->postData['HOMEURL'] .'"/><br>
+                            <input name="back_notify_url" type="text" value="'. $this->postData['BACKURL'] .'"/><br>
+                            <input name="card_no" type="text" value="'. $this->postData['CARDNO'] .'"/><br>
+                            <input name="cert_type" type="text" value="'. $this->postData['IDTYPE'] .'"/><br>
+                            <input name="cert_no" type="text" value="'. $this->postData['IDCARD'] .'"/><br>
+                            <input name="cardholder_name" type="text" value="'. $this->postData['USERNAME'] .'"/><br>
+                            <input name="user_id" type="text" value="'. $this->postData['USERID'] .'"/><br>
+                            <input name="RSA" type="text" value="'. $secret .'"/>
                             <input type="submit" name="submit" value="提交"><br>
                         </form>
                     </body>
@@ -328,5 +355,30 @@ class OssClient extends OssBaseClient
             $ossLog->write($message);
         }
         return $r;*/
+    }
+
+    //pc认证支付回调
+    public function dirPayGateNotify(){
+        $this->checkAccessAppKey();
+        if($this->illegalAccessAppKey){
+            return ['code'=>204,'msg'=>'请求方法不存在'];
+        }
+
+        $this->checkParams($this->params);
+        if($this->postErrorMsg){
+            return ['code'=>201,'msg'=>$this->postErrorMsg];
+        }
+        if(!$this->postData){
+            return ['code'=>202,'msg'=>'参数不能为空'];
+        }
+
+        $r = ['code'=>300,'msg'=>'签名验证失败','data'=>[]];
+        $secret = $this->getSign($this->postData);
+        if($secret === $this->postData['RSA']){
+            $r['code'] = 200;
+            $r['msg'] = '签名验证成功';
+            $r['data'] = $this->postData;
+        }
+        return $r;
     }
 }
