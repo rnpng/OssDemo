@@ -381,4 +381,9 @@ class OssClient extends OssBaseClient
         }
         return $r;
     }
+
+    public function __call($method,$args){
+        $message =  '方法：'.$method.' 方法不存在';
+        return ['code'=>400,'msg'=>$message];
+    }
 }
